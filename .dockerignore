@@ -1,0 +1,7 @@
+.git
+.github
+k8s
+tests
+README.md
+__pycache__
+.pytest_cache
