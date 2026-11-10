@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -v
+
+  docker:
+    name: Build and smoke-test the Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image (not pushed anywhere)
+        run: docker build -t titanic-survival-api:ci .
+      - name: Start container
+        run: docker run -d --name api -p 8000:8000 titanic-survival-api:ci
+      - name: Wait for Docker to mark it healthy
+        run: |
+          for i in $(seq 1 30); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' api)
+            echo "health: $status"
+            [ "$status" = "healthy" ] && exit 0
+            sleep 2
+          done
+          docker logs api
+          exit 1
+      - name: Call the API
+        run: |
+          set -e
+          curl -fsS http://localhost:8000/ ; echo
+          curl -fsS http://localhost:8000/model-info ; echo
+          curl -fsS -X POST http://localhost:8000/predict \
+            -H "Content-Type: application/json" \
+            -d '{"Pclass":3,"Sex":"male","Age":25.0,"SibSp":0,"Parch":0,"Fare":8.05,"Embarked":"S"}' ; echo
+      - name: Container logs
+        if: always()
+        run: docker logs api
+
+  kubernetes:
+    name: Validate Kubernetes manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+      - run: ./kubeconform -strict -summary k8s/

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: titanic-survival-api
+  labels:
+    app: titanic-survival-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: titanic-survival-api
+  template:
+    metadata:
+      labels:
+        app: titanic-survival-api
+    spec:
+      containers:
+        - name: api
+          image: stoo14/titanic-survival-api:v1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
