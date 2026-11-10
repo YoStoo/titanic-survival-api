@@ -53,6 +53,19 @@ jobs:
         if: always()
         run: docker logs api
 
+  published-image:
+    name: Smoke-test the published Docker Hub image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull and run stoo14/titanic-survival-api
+        run: |
+          docker run -d --name hub -p 8000:8000 stoo14/titanic-survival-api:latest
+          for i in $(seq 1 30); do curl -fsS http://localhost:8000/ && break; sleep 2; done
+          echo
+          curl -fsS -X POST http://localhost:8000/predict \
+            -H "Content-Type: application/json" \
+            -d '{"Pclass":1,"Sex":"female","Age":30.0,"SibSp":0,"Parch":0,"Fare":50.0,"Embarked":"S"}'
+
   kubernetes:
     name: Validate Kubernetes manifests
     runs-on: ubuntu-latest
